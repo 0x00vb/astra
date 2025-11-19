@@ -1,0 +1,142 @@
+PRS — PRODUCT REQUIREMENTS SPECIFICATION (IEEE STYLE)
+
+Product: Astra Intelligent Document Reasoning Platform
+Version: 1.0
+Standard: IEEE Std 830-1998–style articulation
+
+1. Introduction
+1.1 Purpose
+
+This PRS defines the functional and non-functional requirements for Astra, an AI-powered document analysis platform integrating RAG, ReAct, vector search, and transformer inference. The platform provides explainable reasoning, multi-document synthesis, and interactive analysis via a modern UI.
+
+1.2 Scope
+
+The system allows users to upload documents, generate embeddings, execute semantic search, and interact with an AI agent that reasons over the data. The platform includes:
+
+Document ingestion
+
+Chunking & embedding
+
+Vector storage & retrieval
+
+ReAct-based agent reasoning
+
+Chat interface with citations
+
+Insights visualization
+
+1.3 Definitions
+
+RAG: Retrieval-Augmented Generation
+
+ReAct: Reasoning + Acting framework
+
+Embedding: Numeric representation of text
+
+Vector DB: ChromaDB or FAISS
+
+2. Overall Description
+2.1 Product Perspective
+
+Astra is a standalone SaaS-style application consisting of:
+
+Frontend UI: Next.js, Tailwind, ShadCN
+
+Backend API: FastAPI
+
+LLM Engine: Local LLaMA/Ollama or remote inference
+
+Vector DB: Chroma/FAISS
+
+2.2 User Classes
+
+Technical analysts
+
+Engineers
+
+Consultants
+
+Investigators
+
+Data professionals
+
+2.3 Product Functions
+
+Document upload & text extraction
+
+Embedding & indexing
+
+Semantic Q&A
+
+Evidence-grounded answers
+
+Reasoning trace visualization
+
+Dashboard metrics
+
+3. Specific Requirements
+3.1 Functional Requirements
+FR-01 Document Ingestion
+
+The system SHALL accept PDFs, TXT, DOCX.
+
+The system SHALL extract text automatically.
+
+FR-02 Embedding Generation
+
+The system SHALL generate embeddings using SentenceTransformers.
+
+The system SHALL chunk text into segments <1024 tokens.
+
+FR-03 Vector Database Operations
+
+The system SHALL store embeddings in a persistent vector database.
+
+The system SHALL allow nearest-neighbor retrieval.
+
+FR-04 RAG Query Engine
+
+The system SHALL retrieve the top-K relevant embeddings.
+
+The system SHALL assemble context for the LLM.
+
+FR-05 ReAct Reasoning
+
+The system SHALL generate structured multi-step reasoning.
+
+The system SHALL display reasoning steps in the UI.
+
+FR-06 User Interface
+
+The system SHALL include:
+
+Dashboard
+
+Document viewer
+
+Chat agent
+
+Insights panel
+
+3.2 Non-Functional Requirements
+NFR-01 Performance
+
+Retrieval latency MUST be <200ms locally.
+
+NFR-02 Security
+
+Documents MUST remain local unless user chooses cloud mode.
+
+NFR-03 Usability
+
+UI MUST remain fully responsive for mobile & desktop.
+
+NFR-04 Maintainability
+
+All modules MUST be modular and isolated.
+
+4. Constraints
+
+Free-tier only infrastructure unless user upgrades.
+
+Local GPU support.

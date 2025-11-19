@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+psycopg2-binary
+sqlalchemy
+alembic
+passlib
+pydantic-settings
+langchain
+chromadb
+sentence-transformers

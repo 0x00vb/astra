@@ -1,0 +1,115 @@
+DEVELOPMENT PLAN (DEVPLAN)
+
+Standard Inspired: IEEE 1058 – Software Project Management Plan
+
+1. Project Overview
+1.1 Purpose
+
+Define methods, tools, timeline, and responsibilities to develop Astra version 1.0.
+
+1.2 Objectives
+
+Deliver a complete RAG + ReAct reasoning engine.
+
+Build a modern, high-impact UI.
+
+Achieve local deployment with optional AWS integration.
+
+2. Project Organization
+2.1 Roles
+
+Project Lead: You
+
+AI/ML Developer: You
+
+Frontend Developer: You
+
+Backend Developer: You
+(soloproyecto optimizado)
+
+2.2 Tools
+
+GitHub
+
+FastAPI
+
+LangChain
+
+ChromaDB / FAISS
+
+Next.js
+
+TailwindCSS
+
+Ollama (optional)
+
+AWS S3/Lambda (optional)
+
+3. Technical Process
+3.1 Development Model
+
+Hybrid Agile + Iterative refinement
+Cycles:
+
+Phase 1 — Core backend
+
+Phase 2 — Core frontend
+
+Phase 3 — RAG + ReAct
+
+Phase 4 — Integrations
+
+Phase 5 — UI/UX refinement
+
+Phase 6 — Showcase build
+
+4. Work Packages (WBS)
+WP-01 Backend Foundations
+
+Set up FastAPI
+
+Document ingestion endpoint
+
+Embedding generator
+
+Vector DB persistence
+
+WP-02 RAG Engine
+
+Retriever implementation
+
+Context builder
+
+Chat endpoint
+
+WP-03 ReAct Agent
+
+Reasoning policies
+
+Thought/Action/Observation pipeline
+
+Output formatter
+
+WP-04 Frontend
+
+Dashboard
+
+Chat + ReAct panel
+
+Document viewer
+
+Insights graphs
+
+WP-05 Integration
+
+API binding
+
+Real-time UI updates
+
+Error handling
+
+WP-06 Deployment
+
+Local docker deployment
+
+Optional AWS serverless deployment
