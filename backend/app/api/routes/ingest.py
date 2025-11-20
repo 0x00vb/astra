@@ -2,7 +2,7 @@
 import logging
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.db.session import get_db
 from app.db.models import Document, Chunk, DocumentStatus
 from app.core.ingest import DocumentIngestionPipeline
+from app.core.indexing import EmbeddingIndexer
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,17 @@ router = APIRouter(prefix="/ingest", tags=["ingestion"])
 
 # Initialize ingestion pipeline
 ingestion_pipeline = DocumentIngestionPipeline()
+
+# Lazy initialization for embedding indexer (only loads model when needed)
+_embedding_indexer: Optional[EmbeddingIndexer] = None
+
+
+def get_embedding_indexer() -> EmbeddingIndexer:
+    """Get or create embedding indexer instance (lazy initialization)."""
+    global _embedding_indexer
+    if _embedding_indexer is None:
+        _embedding_indexer = EmbeddingIndexer()
+    return _embedding_indexer
 
 
 # Response models
@@ -61,6 +73,16 @@ class ProgressResponse(BaseModel):
     status: str
     chunks_processed: int
     total_chunks: int
+
+
+class IndexResponse(BaseModel):
+    """Response model for indexing endpoint."""
+    doc_id: str
+    chunks_indexed: int
+    total_chunks: int
+    total_time_seconds: float
+    collection_size: int
+    metrics: dict
 
 
 @router.post("/upload", response_model=IngestionResponse, status_code=status.HTTP_201_CREATED)
@@ -319,6 +341,76 @@ async def get_document_content(
                 for chunk in chunks
             ],
         }
+
+
+@router.post("/index", response_model=IndexResponse, status_code=status.HTTP_200_OK)
+async def index_document(
+    doc_id: str = Query(..., description="Document UUID to index"),
+    skip_existing: bool = Query(True, description="Skip chunks already indexed in ChromaDB"),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate and persist embeddings for all chunks of a document.
+    
+    This endpoint:
+    - Retrieves all chunks for the specified document from the database
+    - Generates embeddings in batches with OOM handling
+    - Persists embeddings and metadata to ChromaDB
+    - Returns indexing summary with metrics
+    
+    Args:
+        doc_id: Document UUID
+        skip_existing: If True, skip chunks already indexed in ChromaDB
+        db: Database session
+        
+    Returns:
+        Indexing results with metrics
+    """
+    try:
+        doc_uuid = uuid.UUID(doc_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid document ID format",
+        )
+    
+    # Verify document exists
+    document = db.query(Document).filter(Document.doc_id == doc_uuid).first()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    
+    # Check if document has chunks
+    if document.total_chunks == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document has no chunks to index",
+        )
+    
+    try:
+        # Index document chunks (lazy initialization)
+        indexer = get_embedding_indexer()
+        result = indexer.index_document_chunks(
+            db=db,
+            doc_id=doc_uuid,
+            skip_existing=skip_existing,
+        )
+        
+        return IndexResponse(**result)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Error indexing document {doc_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to index document: {str(e)}",
+        )
 
 
 @router.delete("/document/{document_id}", status_code=status.HTTP_204_NO_CONTENT)

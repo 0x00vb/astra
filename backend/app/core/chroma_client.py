@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 
 # Global Chroma client instance
 _chroma_client: Optional[chromadb.ClientAPI] = None
-_chroma_collection: Optional[chromadb.Collection] = None
+# Cache collections by name to support multiple collections
+_collections_cache: Dict[str, chromadb.Collection] = {}
 
 
 def get_chroma_client() -> chromadb.ClientAPI:
@@ -51,22 +52,26 @@ def get_chroma_collection(collection_name: str = "documents") -> chromadb.Collec
     Returns:
         ChromaDB collection
     """
-    global _chroma_collection
+    global _collections_cache
+
+    # Return cached collection if it exists
+    if collection_name in _collections_cache:
+        return _collections_cache[collection_name]
 
     client = get_chroma_client()
 
     try:
-        # Try to get existing collection
-        _chroma_collection = client.get_or_create_collection(
+        # Get or create collection and cache it
+        collection = client.get_or_create_collection(
             name=collection_name,
             metadata={"description": "Document embeddings for semantic search"},
         )
+        _collections_cache[collection_name] = collection
         logger.info(f"ChromaDB collection '{collection_name}' ready")
+        return collection
     except Exception as e:
         logger.error(f"Failed to get/create ChromaDB collection: {e}")
         raise
-
-    return _chroma_collection
 
 
 def add_embeddings_to_chroma(

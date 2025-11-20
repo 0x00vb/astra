@@ -15,17 +15,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Directorio de trabajo
 WORKDIR /app
 
-# Instalar dependencias de Python (incluye typing-extensions desde requirements)
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+# Instalar uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Crear usuario no-root para seguridad
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Crear usuario no-root para seguridad (antes de copiar código)
+RUN useradd -m -u 1000 appuser
 
 # Copiar código de la aplicación
 COPY --chown=appuser:appuser . .
+
+# Instalar dependencias de Python usando uv
+# Primero instalar PyTorch (requiere index URL especial)
+RUN uv pip install --system --no-cache torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Instalar el resto de dependencias desde pyproject.toml
+RUN uv pip install --system --no-cache .
 
 # Cambiar a usuario no-root
 USER appuser

@@ -1,6 +1,7 @@
 """Main document ingestion pipeline."""
 import uuid
 import logging
+import hashlib
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,11 @@ from app.core.embeddings import generate_embeddings
 from app.core.chroma_client import add_embeddings_to_chroma, delete_embeddings_from_chroma
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_chunk_hash(text: str) -> str:
+    """Compute SHA256 hash for a chunk text."""
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
 
 
 class DocumentIngestionPipeline:
@@ -160,10 +166,11 @@ class DocumentIngestionPipeline:
             # Step 5: Generate embeddings
             logger.info(f"Generating embeddings for {len(chunks_data)} chunks")
             chunk_texts = [chunk.text for chunk in chunks_data]
+            # Use CPU-optimized batch size (8 for CPU)
             embeddings = generate_embeddings(
                 chunk_texts,
                 model_name=self.embedding_model,
-                batch_size=32,
+                batch_size=8,
                 show_progress_bar=False,
             )
 
@@ -171,10 +178,15 @@ class DocumentIngestionPipeline:
             logger.info(f"Storing embeddings in ChromaDB for document {doc_id}")
             metadatas = []
             ids = []
-            for i, chunk_data in enumerate(chunks_data):
+            for i, (chunk_data, db_chunk) in enumerate(zip(chunks_data, db_chunks)):
+                chunk_hash = _compute_chunk_hash(chunk_data.text)
                 metadata = {
                     "doc_id": str(doc_id),
                     "chunk_id": chunk_data.chunk_id,
+                    "chunk_uuid": str(db_chunk.id),
+                    "start_char": chunk_data.start_char,
+                    "end_char": chunk_data.end_char,
+                    "hash": chunk_hash,
                 }
                 if chunk_data.page_number is not None:
                     metadata["page_number"] = chunk_data.page_number
