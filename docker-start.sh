@@ -5,6 +5,10 @@
 
 set -e
 
+# Habilitar BuildKit para acelerar builds con cache mounts
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 ENV=${1:-dev}
 
 echo "🚀 Iniciando proyecto Astra en modo: $ENV"
@@ -44,4 +48,3 @@ if [ "$ENV" = "prod" ]; then
 else
     docker compose ps
 fi
-

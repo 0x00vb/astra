@@ -48,3 +48,6 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 
+# ChromaDB data (should not be in image)
+chroma_db/
+

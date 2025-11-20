@@ -36,6 +36,7 @@ services:
       DB_NAME: ${DB_NAME:-astra_db}
       SQLALCHEMY_DATABASE_URI: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:${DB_PORT:-5432}/${DB_NAME:-astra_db}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      CHROMA_PERSIST_DIR: ${CHROMA_PERSIST_DIR:-./chroma_db}
     ports:
       - "8000:8000"
     volumes:

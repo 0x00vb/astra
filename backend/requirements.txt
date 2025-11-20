@@ -1,11 +1,30 @@
-fastapi
-uvicorn[standard]
-pydantic
-psycopg2-binary
-sqlalchemy
-alembic
-passlib
-pydantic-settings
-langchain
-chromadb
-sentence-transformers
+# Core FastAPI stack - versiones compatibles
+fastapi>=0.104.1,<0.115.0
+uvicorn[standard]>=0.24.0,<0.30.0
+pydantic>=2.5.0,<3.0.0
+pydantic-settings>=2.1.0,<3.0.0
+typing-extensions>=4.8.0
+
+# CORS support
+fastapi-cors>=0.0.6
+
+# Database
+psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.23,<3.0.0
+alembic>=1.12.1,<2.0.0
+
+# Authentication
+passlib[bcrypt]>=1.7.4
+
+# AI/ML libraries
+langchain>=0.1.0
+chromadb>=0.4.18
+sentence-transformers>=2.2.2
+
+# Document processing
+pypdf>=3.17.0
+python-docx>=1.1.0
+beautifulsoup4>=4.12.2
+chardet>=5.2.0
+
+python-multipart
