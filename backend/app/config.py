@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str
     GEMINI_API_KEY: str
     GEMINI_MODEL: str
+    
     class Config:
         env_file = os.path.join(os.path.dirname(__file__), '../.env')
         env_file_encoding = 'utf-8'

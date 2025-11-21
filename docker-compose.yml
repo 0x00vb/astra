@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Base de datos PostgreSQL
   postgres:
     image: postgres:16-alpine
     container_name: astra_postgres_dev
@@ -22,7 +21,6 @@ services:
     networks:
       - astra_network
 
-  # Backend FastAPI
   backend:
     build:
       context: ./backend
@@ -37,20 +35,34 @@ services:
       SQLALCHEMY_DATABASE_URI: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:${DB_PORT:-5432}/${DB_NAME:-astra_db}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       CHROMA_PERSIST_DIR: ${CHROMA_PERSIST_DIR:-./chroma_db}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      # Important: Set Reload to TRUE for code changes to take effect
+      WATCHFILES_FORCE_POLLING: "true" 
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - /app/__pycache__
     depends_on:
       postgres:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - astra_network
-    restart: unless-stopped
+    
+    # --- THE MAGIC PART ---
+    develop:
+      watch:
+        # Action 1: If pyproject.toml changes, rebuild the image automatically
+        - action: rebuild
+          path: ./backend/pyproject.toml
+        
+        # Action 2: If code changes, just sync the file (FastAPI reload picks it up)
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - ./backend/__pycache__
+            - ./backend/*.pyc
 
-  # Frontend Next.js
   frontend:
     build:
       context: ./frontend
@@ -60,15 +72,18 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     depends_on:
       - backend
     networks:
       - astra_network
-    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules
+            - .next
 
 volumes:
   postgres_data:
@@ -77,4 +92,3 @@ volumes:
 networks:
   astra_network:
     driver: bridge
-
