@@ -1,0 +1,21 @@
+# Dockerfile para desarrollo con hot reload
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package.json package-lock.json* ./
+
+# Instalar dependencias con cache mount de BuildKit para acelerar builds
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+
+# Copiar el resto del código
+COPY . .
+
+# Exponer puerto
+EXPOSE 3000
+
+# Comando para desarrollo con hot reload
+CMD ["npm", "run", "dev"]
+
