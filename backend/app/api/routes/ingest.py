@@ -9,8 +9,11 @@ from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.db.models import Document, Chunk, DocumentStatus
+from app.db.models.user import User
+from app.db.models.analytics import DocumentOperation
 from app.core.ingest import DocumentIngestionPipeline
 from app.core.indexing import EmbeddingIndexer
+from app.core.auth import get_current_active_user
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +91,8 @@ class IndexResponse(BaseModel):
 @router.post("/upload", response_model=IngestionResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
-    owner: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Upload and ingest a document.
@@ -127,12 +130,39 @@ async def upload_document(
 
     # Ingest document
     try:
+        import time as time_module
+        upload_start = time_module.time()
         result = ingestion_pipeline.ingest_document(
             db=db,
             file_content=file_content,
             filename=file.filename,
-            owner=owner,
+            owner=str(current_user.user_id),  # Pass user_id as owner for backward compatibility
         )
+        upload_time = (time_module.time() - upload_start) * 1000  # Convert to ms
+        
+        # Update document with user_id
+        doc_uuid = uuid.UUID(result["document_id"])
+        document = db.query(Document).filter(Document.doc_id == doc_uuid).first()
+        if document:
+            document.user_id = current_user.user_id
+            db.commit()
+        
+        # Log document operation for analytics
+        try:
+            doc_op = DocumentOperation(
+                user_id=current_user.user_id,
+                document_id=doc_uuid,
+                operation_type="upload",
+                file_size=len(file_content),
+                chunks_count=result.get("stats", {}).get("chunks", 0),
+                processing_time_ms=upload_time,
+            )
+            db.add(doc_op)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to log document operation for analytics: {e}")
+            db.rollback()
+        
         return IngestionResponse(**result)
     except ValueError as e:
         raise HTTPException(
@@ -152,16 +182,18 @@ async def list_documents(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
-    List all documents.
+    List all documents for the current user.
 
     Args:
         skip: Number of documents to skip
         limit: Maximum number of documents to return
+        current_user: Current authenticated user
     """
     try:
-        documents = db.query(Document).offset(skip).limit(limit).all()
+        documents = db.query(Document).filter(Document.user_id == current_user.user_id).offset(skip).limit(limit).all()
 
         return [
             DocumentResponse(
@@ -188,6 +220,7 @@ async def list_documents(
 async def get_document(
     document_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Get document details.
@@ -229,6 +262,7 @@ async def get_document(
 async def get_ingestion_progress(
     document_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Get ingestion progress for a document.
@@ -244,7 +278,10 @@ async def get_ingestion_progress(
             detail="Invalid document ID format",
         )
 
-    document = db.query(Document).filter(Document.doc_id == doc_uuid).first()
+    document = db.query(Document).filter(
+        Document.doc_id == doc_uuid,
+        Document.user_id == current_user.user_id
+    ).first()
 
     if not document:
         raise HTTPException(
@@ -277,6 +314,7 @@ async def get_document_content(
     document_id: str,
     chunk_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Get document content and metadata.
@@ -293,7 +331,10 @@ async def get_document_content(
             detail="Invalid document ID format",
         )
 
-    document = db.query(Document).filter(Document.doc_id == doc_uuid).first()
+    document = db.query(Document).filter(
+        Document.doc_id == doc_uuid,
+        Document.user_id == current_user.user_id
+    ).first()
 
     if not document:
         raise HTTPException(
@@ -348,6 +389,7 @@ async def index_document(
     doc_id: str = Query(..., description="Document UUID to index"),
     skip_existing: bool = Query(True, description="Skip chunks already indexed in ChromaDB"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Generate and persist embeddings for all chunks of a document.
@@ -374,8 +416,11 @@ async def index_document(
             detail="Invalid document ID format",
         )
     
-    # Verify document exists
-    document = db.query(Document).filter(Document.doc_id == doc_uuid).first()
+    # Verify document exists and belongs to user
+    document = db.query(Document).filter(
+        Document.doc_id == doc_uuid,
+        Document.user_id == current_user.user_id
+    ).first()
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -417,6 +462,7 @@ async def index_document(
 async def delete_document(
     document_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Delete a document and all its chunks/embeddings.
@@ -432,7 +478,10 @@ async def delete_document(
             detail="Invalid document ID format",
         )
 
-    document = db.query(Document).filter(Document.doc_id == doc_uuid).first()
+    document = db.query(Document).filter(
+        Document.doc_id == doc_uuid,
+        Document.user_id == current_user.user_id
+    ).first()
 
     if not document:
         raise HTTPException(
@@ -441,6 +490,9 @@ async def delete_document(
         )
 
     try:
+        import time as time_module
+        delete_start = time_module.time()
+        
         # Delete embeddings from ChromaDB
         try:
             from app.core.chroma_client import delete_embeddings_from_chroma
@@ -451,6 +503,24 @@ async def delete_document(
         # Delete document (cascades to chunks)
         db.delete(document)
         db.commit()
+        
+        delete_time = (time_module.time() - delete_start) * 1000  # Convert to ms
+        
+        # Log document operation for analytics
+        try:
+            doc_op = DocumentOperation(
+                user_id=current_user.user_id,
+                document_id=doc_uuid,
+                operation_type="delete",
+                file_size=document.file_size,
+                chunks_count=document.total_chunks,
+                processing_time_ms=delete_time,
+            )
+            db.add(doc_op)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to log document operation for analytics: {e}")
+            db.rollback()
 
         return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content=None)
 

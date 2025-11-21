@@ -1,7 +1,7 @@
 """Database initialization script."""
 import logging
 from app.db.session import engine, Base
-from app.db.models import Document, Chunk
+from app.db.models import Document, Chunk, User, QueryLog, DocumentOperation
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -95,12 +95,22 @@ class DocumentIngestionPipeline:
             raise ValueError(f"Unsupported file type: {e}")
 
         # Create document record
+        # If owner is provided and is a UUID string, use it as user_id
+        user_id = None
+        if owner:
+            try:
+                import uuid as uuid_lib
+                user_id = uuid_lib.UUID(owner)
+            except (ValueError, TypeError):
+                # If owner is not a valid UUID, keep it as None (will be set by route handler)
+                pass
+        
         document = Document(
             doc_id=doc_id,
             filename=filename,
             file_type=file_type,
             file_size=file_size,
-            owner=owner,
+            user_id=user_id,  # Set user_id if owner was a valid UUID
             status=DocumentStatus.PROCESSING,
         )
         db.add(document)

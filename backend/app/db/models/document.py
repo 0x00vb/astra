@@ -25,7 +25,7 @@ class Document(Base):
     file_type = Column(String(10), nullable=False)  # pdf, docx, txt, html
     file_size = Column(Integer, nullable=False)  # Size in bytes
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    owner = Column(String(255), nullable=True)  # For future auth integration
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING, nullable=False)
     total_pages = Column(Integer, nullable=True)  # Number of pages (if available)
     total_chunks = Column(Integer, default=0, nullable=False)
@@ -34,6 +34,7 @@ class Document(Base):
 
     # Relationships
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
+    user = relationship("User", back_populates="documents")
 
     def __repr__(self):
         return f"<Document(doc_id={self.doc_id}, filename={self.filename}, status={self.status})>"
